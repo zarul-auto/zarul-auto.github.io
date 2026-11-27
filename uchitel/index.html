@@ -75,7 +75,7 @@ async function questions(lesson) {
   catch (e) { QS[lesson] = null; }
   return QS[lesson];
 }
-function cls(p) { return p >= 0.9 ? "hi" : p >= 0.8 ? "mi" : "lo"; }
+function cls(p) { return p >= 0.95 ? "hi" : p >= 0.8 ? "mi" : "lo"; }
 function parseAns(s) {   // "1:Б+ 2:А- 3:В?" → {1:{a:"Б",ok:true},...}
   const m = {};
   String(s).split(" ").forEach(t => { const x = /^(\d+):(.)(.)$/.exec(t); if (x) m[+x[1]] = { a: x[2], ok: x[3] === "+" ? true : x[3] === "-" ? false : null }; });
@@ -132,7 +132,7 @@ function render(lessons, rows, G) {
       return `<td class="sc ${cls(p)}" title="неверно ${r.bad}, без ответа ${r.left}"><b>${r.good} из ${r.total}</b><span>экзамен ${r.ex} из ${r.nex}${r.left ? ` · не отв. ${r.left}` : ""}</span></td>`;
     }).join("") + (cnt ? `<td class="sc ${cls(sum / cnt)}"><b>${Math.round(sum / cnt * 100)}%</b></td>` : `<td>—</td>`) + `</tr>`;
   });
-  h += `</tbody></table></div><p class="note">Зелёный: 90% и больше (уверенно на экзамен), жёлтый: 80–89% (около проходного), красный: меньше 80%.</p>`;
+  h += `</tbody></table></div><p class="note">Зелёный: 95% и больше (уровень цели курса 38–40 из 40), жёлтый: 80–94% (сдаст, но запас маленький), красный: меньше 80% (ниже проходного 32 из 40).</p>`;
   // 2. один урок по вопросам
   if (cur) {
     const Q = QS[cur];
