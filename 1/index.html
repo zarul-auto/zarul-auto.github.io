@@ -37,7 +37,7 @@ li.done .ctl button:not(.pick):not(.right){opacity:.3}
 .v:empty{display:none}
 .v.good{color:var(--ok)}.v.bad{color:var(--bad)}.v.wait{color:var(--mute);font-weight:400}
 button:focus-visible{outline:3px solid var(--y);outline-offset:2px}
-.res{margin:22px 0 10px;border:3px solid var(--fg);padding:14px}
+.res{margin:22px 0 32px;border:3px solid var(--fg);padding:14px}
 .res h2{font:800 22px/1.15 var(--head);margin:0 0 4px;text-wrap:balance}
 .res .big{font:800 44px/1 var(--head);font-variant-numeric:tabular-nums;margin:6px 0}
 .tot{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0 4px}
@@ -47,9 +47,6 @@ button:focus-visible{outline:3px solid var(--y);outline-offset:2px}
 .tot span{font-size:13px;color:var(--mute)}
 .res p{margin:6px 0 0;font-size:14px;color:var(--mute)}
 .res .lvl{color:var(--fg);font-size:15px}
-.foot{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:8px 0 28px;font-size:13px;color:var(--mute)}
-.foot button{font:600 14px var(--body);background:transparent;color:var(--fg);border:1.5px solid var(--fg);padding:9px 12px;cursor:pointer}
-.foot .yes{background:var(--bad);border-color:var(--bad);color:#fff}
 @media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}.ctl button{transition:background .12s,color .12s,border-color .12s}}
 @media (max-width:370px){.ctl button{width:44px;height:44px}li{grid-template-columns:32px 1fr}.n{font-size:24px}}
 </style>
@@ -58,7 +55,6 @@ button:focus-visible{outline:3px solid var(--y);outline-offset:2px}
 <div class="how"><b>Как отвечать.</b> Номер строки написан на экране вверху слева. Думай сам, молча, и нажми букву. Телефон сразу покажет, верно или нет. Ответ даётся один раз, поменять его нельзя. Строки с жёлтой <b>Э</b> это вопросы экзамена. Ответы хранятся только в твоём телефоне.</div>
 <ol id="rows"></ol>
 <section class="res" id="res"></section>
-<div class="foot" id="foot"></div>
 </main>
 <script>const D={"block": "1", "rows": [{"n": 1, "t": "Загадка: кто прав?", "k": 2, "e": false, "ok": 1, "after": 19}, {"n": 2, "t": "Разминка 1: верно или нет", "k": 2, "e": false, "ok": 1}, {"n": 3, "t": "Разминка 2: верно или нет", "k": 2, "e": false, "ok": 1}, {"n": 4, "t": "Сцена 1: жёлтый без мигания", "k": 3, "e": false, "ok": 1}, {"n": 5, "t": "Сцена 2: красный с жёлтым", "k": 2, "e": false, "ok": 1}, {"n": 6, "t": "Жёлтый мигающий", "k": 2, "e": false, "ok": 1}, {"n": 7, "t": "вопрос экзамена", "k": 3, "e": true, "ok": 2}, {"n": 8, "t": "вопрос экзамена", "k": 3, "e": true, "ok": 2}, {"n": 9, "t": "Сцена 3: стрелка при красном", "k": 3, "e": false, "ok": 1}, {"n": 10, "t": "Сцена 4: регулировщик", "k": 4, "e": false, "ok": 1}, {"n": 11, "t": "Рука вверх", "k": 2, "e": false, "ok": 1}, {"n": 12, "t": "Требование остановиться", "k": 2, "e": false, "ok": 1}, {"n": 13, "t": "вопрос экзамена", "k": 4, "e": true, "ok": 2}, {"n": 14, "t": "вопрос экзамена", "k": 4, "e": true, "ok": 3}, {"n": 15, "t": "вопрос экзамена", "k": 3, "e": true, "ok": 1}, {"n": 16, "t": "вопрос экзамена", "k": 3, "e": true, "ok": 1}, {"n": 17, "t": "вопрос экзамена", "k": 3, "e": true, "ok": 1}, {"n": 18, "t": "вопрос экзамена", "k": 3, "e": true, "ok": 0}, {"n": 19, "t": "Загадка ещё раз", "k": 2, "e": false, "ok": 1}, {"n": 20, "t": "Найди нарушение", "k": 4, "e": false, "ok": 2}], "nex": 8, "hi": 7, "mid": 6};
 const KEY="zarul-blank2-"+D.block, L="АБВГД";
@@ -109,16 +105,9 @@ ol.addEventListener("click",ev=>{
   if(S[n]!=null)return;              // ответ один раз, как на экзамене
   S[n]=+btn.dataset.i;save();paint();
 });
-const foot=document.getElementById("foot");
-function footIdle(){
-  foot.innerHTML=`<button id="clr">Стереть все ответы</button><span>Перед новым уроком.</span>`;
-  document.getElementById("clr").onclick=()=>{
-    foot.innerHTML=`<span>Точно стереть все ответы?</span><button class="yes" id="yes">Да, стереть</button><button id="no">Нет</button>`;
-    document.getElementById("yes").onclick=()=>{S={};save();paint();footIdle();scrollTo(0,0)};
-    document.getElementById("no").onclick=footIdle;
-  };
-}
-footIdle();paint();
+// кнопки «стереть всё» нет (27.11.2026): иначе можно ответить, узнать верные ответы, стереть и пройти заново.
+// У каждого урока свой ключ хранилища, поэтому для нового урока чистить не нужно.
+paint();
 try{navigator.wakeLock&&navigator.wakeLock.request("screen").catch(()=>{})}catch(e){}
 </script>
 </body></html>
