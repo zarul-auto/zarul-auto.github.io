@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Успеваемость группы — Zarul Auto</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;600&family=Inter+Tight:wght@700;800&display=swap">
+<!-- Страница учителя: успеваемость одной группы. Собирается из сборка/uchitel.html (API подставляет build_extras.run).
+     Открывается по ссылке с ключом учителя: https://zarul-auto.github.io/uchitel/#КЛЮЧ (ключ в Google Таблице, лист «Группы»). -->
+<style>
+:root{--bg:#ffffff;--fg:#0e0e0e;--mute:#5b5b55;--line:#dcdcd6;--card:#f6f6f2;--y:#FFD400;--ok:#1e9e4a;--okbg:#dff3e5;--mid:#9a7400;--midbg:#fff3c4;--bad:#d63a2f;--badbg:#fbe3e0;
+--head:"Inter Tight","Arial Black",system-ui,sans-serif;--body:"Golos Text",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+@media (prefers-color-scheme:dark){:root{--bg:#111110;--fg:#f2f2ee;--mute:#a3a39b;--line:#33332f;--card:#1b1b19;--ok:#3fcf6e;--okbg:#17321f;--mid:#f1c232;--midbg:#3a3112;--bad:#ff6b5f;--badbg:#3a1a17;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 var(--body)}
+.wrap{max-width:1100px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header{background:#0e0e0e;color:#fff}
+header .wrap{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;padding-block:14px}
+header h1{font:800 22px/1.1 var(--head);margin:0;flex:1;min-width:220px}
+header h1 small{display:block;font:400 13px/1.4 var(--body);color:#c9c9c2;margin-top:3px}
+.code{background:var(--y);color:#0e0e0e;padding:8px 12px;font:800 13px/1.1 var(--head)}
+.code b{display:block;font-size:24px;letter-spacing:.12em}
+.stripe{height:7px;background:repeating-linear-gradient(-45deg,var(--y) 0 12px,#0e0e0e 12px 24px)}
+h2{font:800 20px/1.2 var(--head);margin:28px 0 10px}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:16px 0 0;color:var(--mute);font-size:13px}
+.bar button,.tabs button{font:600 14px var(--body);background:var(--bg);color:var(--fg);border:1.5px solid var(--fg);padding:8px 12px;cursor:pointer}
+.tabs{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+.tabs button[aria-pressed="true"]{background:var(--fg);color:var(--bg)}
+.scroll{overflow-x:auto;border:1px solid var(--line)}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:center;white-space:nowrap}
+th{font:600 12px/1.2 var(--body);color:var(--mute);text-transform:uppercase;letter-spacing:.04em;background:var(--card);position:sticky;top:0}
+td:first-child,th:first-child{text-align:left;position:sticky;left:0;background:var(--bg);z-index:1;font-weight:600}
+th:first-child{background:var(--card);z-index:2}
+.sc b{display:block;font:800 17px/1.1 var(--head)}
+.sc span{font-size:12px;color:var(--mute)}
+.hi{background:var(--okbg)}.mi{background:var(--midbg)}.lo{background:var(--badbg)}
+td.q{font:700 14px/1 var(--head);min-width:34px;padding:8px 4px}
+td.q.p{background:var(--okbg);color:var(--ok)}td.q.m{background:var(--badbg);color:var(--bad)}td.q.w{color:var(--mute)}
+tr.pct td{font-weight:700;font-size:13px;background:var(--card)}
+th.qh{cursor:help;padding:8px 4px}
+th.qh.e{box-shadow:inset 0 -3px 0 var(--y)}
+.worst{display:grid;gap:10px;margin:14px 0 0}
+.worst div{border-left:5px solid var(--bad);background:var(--card);padding:10px 12px}
+.worst b{font:800 15px/1.3 var(--head)}
+.worst p{margin:4px 0 0;font-size:14px}
+.note{color:var(--mute);font-size:13px;margin:8px 0 0}
+.msg{margin:40px 0;padding:18px;border:3px solid var(--fg);font-size:16px}
+footer{margin:40px 0 30px;color:var(--mute);font-size:12px}
+</style>
+</head>
+<body>
+<header><div class="wrap"><h1 id="title">Успеваемость группы<small id="sub">загрузка…</small></h1><div class="code" id="code" hidden>Код для учеников<b id="codev"></b></div></div><div class="stripe"></div></header>
+<main class="wrap">
+<div class="bar"><button type="button" id="refresh">Обновить</button><span id="upd"></span></div>
+<div id="out"></div>
+<footer>Zarul Auto. Данные обновляются сами каждые 30 секунд, пока страница открыта.</footer>
+</main>
+<script>
+const API = "https://script.google.com/macros/s/AKfycbyyuJOh6XABiZfrZNo4E-JVkXlGkYjb4ttaBzvLSEGMuX0YjNOCOXH6Rs_xaQ6trhWd/exec";
+const L = "АБВГД";
+const key = location.hash.replace(/^#/, "").trim();
+const out = document.getElementById("out");
+const esc = t => String(t).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const QS = {};      // вопросы урока: questions.json
+let DATA = null, cur = null;
+
+async function questions(lesson) {
+  if (QS[lesson] !== undefined) return QS[lesson];
+  try { const r = await fetch(`../${encodeURIComponent(lesson)}/questions.json`); QS[lesson] = r.ok ? await r.json() : null; }
+  catch (e) { QS[lesson] = null; }
+  return QS[lesson];
+}
+function cls(p) { return p >= 0.9 ? "hi" : p >= 0.8 ? "mi" : "lo"; }
+function parseAns(s) {   // "1:Б+ 2:А- 3:В?" → {1:{a:"Б",ok:true},...}
+  const m = {};
+  String(s).split(" ").forEach(t => { const x = /^(\d+):(.)(.)$/.exec(t); if (x) m[+x[1]] = { a: x[2], ok: x[3] === "+" ? true : x[3] === "-" ? false : null }; });
+  return m;
+}
+
+async function load() {
+  if (!key) { out.innerHTML = `<div class="msg">Откройте страницу по своей ссылке учителя. Она есть в таблице успеваемости, лист «Группы».</div>`; document.getElementById("sub").textContent = ""; return; }
+  try {
+    const j = await (await fetch(API + "?key=" + encodeURIComponent(key))).json();
+    if (!j.ok) { out.innerHTML = `<div class="msg">Ссылка не подходит: такого ключа нет. Возьмите ссылку из таблицы, лист «Группы».</div>`; return; }
+    DATA = j;
+  } catch (e) {
+    if (!DATA) out.innerHTML = `<div class="msg">Не получилось загрузить данные. Проверьте интернет и нажмите «Обновить».</div>`;
+    document.getElementById("upd").textContent = "нет связи, показаны прошлые данные";
+    return;
+  }
+  document.title = `${DATA.group}: успеваемость`;
+  document.getElementById("title").firstChild.textContent = `Группа «${DATA.group}»`;
+  document.getElementById("sub").textContent = [DATA.branch, DATA.teacher].filter(Boolean).join(" · ");
+  document.getElementById("code").hidden = false; document.getElementById("codev").textContent = DATA.code;
+  document.getElementById("upd").textContent = "обновлено в " + new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+  const lessons = [...new Set(DATA.rows.map(r => r.lesson))].sort((a, b) => (+a || 0) - (+b || 0));
+  await Promise.all(lessons.map(questions));
+  if (!cur || !lessons.includes(cur)) cur = lessons[lessons.length - 1] || null;
+  render(lessons);
+}
+
+function render(lessons) {
+  const rows = DATA.rows;
+  if (!rows.length) { out.innerHTML = `<div class="msg">Пока нет ни одного ответа. Ученики вводят код группы <b>${esc(DATA.code)}</b> в бланке в телефоне, и их результаты появятся здесь.</div>`; return; }
+  const names = [...new Set(rows.map(r => r.name))].sort((a, b) => a.localeCompare(b, "ru"));
+  const by = {}; rows.forEach(r => { by[r.name + "\u0001" + r.lesson] = r; });
+  // 1. ученики × уроки
+  let h = `<h2>Ученики по урокам</h2><div class="scroll"><table><thead><tr><th>Ученик</th>${lessons.map(l => `<th>Урок ${esc(l)}</th>`).join("")}<th>Среднее</th></tr></thead><tbody>`;
+  names.forEach(n => {
+    let sum = 0, cnt = 0;
+    h += `<tr><td>${esc(n)}</td>` + lessons.map(l => {
+      const r = by[n + "\u0001" + l]; if (!r) return `<td class="sc"><span>—</span></td>`;
+      const p = r.total ? r.good / r.total : 0; sum += p; cnt++;
+      return `<td class="sc ${cls(p)}" title="неверно ${r.bad}, без ответа ${r.left}"><b>${r.good} из ${r.total}</b><span>экзамен ${r.ex} из ${r.nex}${r.left ? ` · не отв. ${r.left}` : ""}</span></td>`;
+    }).join("") + (cnt ? `<td class="sc ${cls(sum / cnt)}"><b>${Math.round(sum / cnt * 100)}%</b></td>` : `<td>—</td>`) + `</tr>`;
+  });
+  h += `</tbody></table></div><p class="note">Зелёный: 90% и больше (уверенно на экзамен), жёлтый: 80–89% (около проходного), красный: меньше 80%.</p>`;
+  // 2. один урок по вопросам
+  if (cur) {
+    const Q = QS[cur];
+    const nq = Q ? Q.rows.length : Math.max(0, ...rows.filter(r => r.lesson === cur).map(r => r.total));
+    const qrow = n => Q && Q.rows.find(x => x.n === n);
+    h += `<h2>Урок ${esc(cur)}${Q ? `. ${esc(Q.title)}` : ""}: ответы по вопросам</h2><div class="tabs">${lessons.map(l => `<button type="button" data-l="${esc(l)}" aria-pressed="${l === cur}">Урок ${esc(l)}</button>`).join("")}</div>`;
+    h += `<div class="scroll"><table><thead><tr><th>Ученик</th>`;
+    for (let i = 1; i <= nq; i++) { const q = qrow(i); h += `<th class="qh${q && q.e ? " e" : ""}" title="${q ? esc(q.tag + ": " + q.q) : ""}">${i}</th>`; }
+    h += `</tr></thead><tbody>`;
+    const right = Array(nq + 1).fill(0), done = Array(nq + 1).fill(0), wrongPick = Array.from({ length: nq + 1 }, () => ({}));
+    names.forEach(n => {
+      const r = by[n + "\u0001" + cur]; if (!r) return;
+      const a = parseAns(r.answers);
+      h += `<tr><td>${esc(n)}</td>`;
+      for (let i = 1; i <= nq; i++) {
+        const x = a[i];
+        if (!x) { h += `<td class="q"></td>`; continue; }
+        if (x.ok !== null) { done[i]++; if (x.ok) right[i]++; else wrongPick[i][x.a] = (wrongPick[i][x.a] || 0) + 1; }
+        h += `<td class="q ${x.ok === true ? "p" : x.ok === false ? "m" : "w"}">${esc(x.a)}</td>`;
+      }
+      h += `</tr>`;
+    });
+    h += `<tr class="pct"><td>Верно</td>`;
+    for (let i = 1; i <= nq; i++) h += `<td>${done[i] ? Math.round(right[i] / done[i] * 100) + "%" : ""}</td>`;
+    h += `</tr></tbody></table></div><p class="note">Буква: что выбрал ученик. Зелёная: верно, красная: ошибка, серая: ответ ещё не открыт (загадка). Жёлтая черта под номером: вопрос экзамена. Наведите на номер, чтобы увидеть вопрос.</p>`;
+    const worst = [];
+    for (let i = 1; i <= nq; i++) if (done[i] && right[i] < done[i]) worst.push({ i, p: right[i] / done[i], miss: done[i] - right[i] });
+    worst.sort((a, b) => a.p - b.p || b.miss - a.miss);
+    if (worst.length) {
+      h += `<h2>Чаще всего ошибаются</h2><div class="worst">` + worst.slice(0, 3).map(w => {
+        const q = qrow(w.i); const wp = Object.entries(wrongPick[w.i]).sort((a, b) => b[1] - a[1])[0];
+        const ok = q ? L[q.ok] : "";
+        const optTxt = (letter) => q ? q.o[L.indexOf(letter)] : "";
+        return `<div><b>Вопрос ${w.i}${q ? ` · ${esc(q.tag)}` : ""}: верно ${Math.round(w.p * 100)}% (ошиблись ${w.miss})</b>` +
+          (q ? `<p>${esc(q.q)}</p><p>Верный ответ: <b>${ok}</b> «${esc(q.o[q.ok])}».${wp ? ` Чаще всего ошибочно выбирали <b>${esc(wp[0])}</b> «${esc(optTxt(wp[0]) || "")}».` : ""}</p>` : "") + `</div>`;
+      }).join("") + `</div>`;
+    }
+  }
+  out.innerHTML = h;
+  out.querySelectorAll(".tabs button").forEach(b => b.onclick = () => { cur = b.dataset.l; render(lessons); });
+}
+
+document.getElementById("refresh").onclick = load;
+addEventListener("hashchange", () => location.reload());
+load();
+setInterval(() => { if (!document.hidden) load(); }, 30000);
+</script>
+</body>
+</html>
