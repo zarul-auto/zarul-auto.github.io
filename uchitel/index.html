@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex">
-<title>Успеваемость группы — Zarul Auto</title>
+<title>Успеваемость — Zarul Auto</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;600&family=Inter+Tight:wght@700;800&display=swap">
 <!-- Страница учителя: успеваемость одной группы. Собирается из сборка/uchitel.html (API подставляет build_extras.run).
@@ -27,6 +27,7 @@ h2{font:800 20px/1.2 var(--head);margin:28px 0 10px}
 .bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:16px 0 0;color:var(--mute);font-size:13px}
 .bar button,.tabs button{font:600 14px var(--body);background:var(--bg);color:var(--fg);border:1.5px solid var(--fg);padding:8px 12px;cursor:pointer}
 .tabs{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+.gt{margin:16px 0 0}.gt button{font-size:15px;padding:10px 14px}
 .tabs button[aria-pressed="true"]{background:var(--fg);color:var(--bg)}
 .scroll{overflow-x:auto;border:1px solid var(--line)}
 table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
@@ -54,9 +55,10 @@ footer{margin:40px 0 30px;color:var(--mute);font-size:12px}
 <body>
 <header><div class="wrap"><h1 id="title">Успеваемость группы<small id="sub">загрузка…</small></h1><div class="code" id="code" hidden>Код для учеников<b id="codev"></b></div></div><div class="stripe"></div></header>
 <main class="wrap">
+<div class="tabs gt" id="gtabs" hidden></div>
 <div class="bar"><button type="button" id="refresh">Обновить</button><span id="upd"></span></div>
 <div id="out"></div>
-<footer>Zarul Auto. Данные обновляются сами каждые 30 секунд, пока страница открыта.</footer>
+<footer>Zarul Auto. Данные обновляются сами раз в полторы минуты, пока страница открыта. Ученик отправляет итог после каждых пяти ответов и в конце урока.</footer>
 </main>
 <script>
 const API = "https://script.google.com/macros/s/AKfycbyyuJOh6XABiZfrZNo4E-JVkXlGkYjb4ttaBzvLSEGMuX0YjNOCOXH6Rs_xaQ6trhWd/exec";
@@ -65,7 +67,7 @@ const key = location.hash.replace(/^#/, "").trim();
 const out = document.getElementById("out");
 const esc = t => String(t).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const QS = {};      // вопросы урока: questions.json
-let DATA = null, cur = null;
+let DATA = null, cur = null, gsel = null;
 
 async function questions(lesson) {
   if (QS[lesson] !== undefined) return QS[lesson];
@@ -91,20 +93,33 @@ async function load() {
     document.getElementById("upd").textContent = "нет связи, показаны прошлые данные";
     return;
   }
-  document.title = `${DATA.group}: успеваемость`;
-  document.getElementById("title").firstChild.textContent = `Группа «${DATA.group}»`;
-  document.getElementById("sub").textContent = [DATA.branch, DATA.teacher].filter(Boolean).join(" · ");
-  document.getElementById("code").hidden = false; document.getElementById("codev").textContent = DATA.code;
+  const gs = DATA.groups;
+  let saved = ""; try { saved = localStorage.getItem("zarul-t-group") || ""; } catch (e) {}
+  if (!gsel || !gs.some(g => g.code === gsel)) gsel = gs.some(g => g.code === saved) ? saved : gs[0].code;
   document.getElementById("upd").textContent = "обновлено в " + new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
   const lessons = [...new Set(DATA.rows.map(r => r.lesson))].sort((a, b) => (+a || 0) - (+b || 0));
   await Promise.all(lessons.map(questions));
-  if (!cur || !lessons.includes(cur)) cur = lessons[lessons.length - 1] || null;
-  render(lessons);
+  show();
 }
 
-function render(lessons) {
-  const rows = DATA.rows;
-  if (!rows.length) { out.innerHTML = `<div class="msg">Пока нет ни одного ответа. Ученики вводят код группы <b>${esc(DATA.code)}</b> в бланке в телефоне, и их результаты появятся здесь.</div>`; return; }
+function show() {
+  const gs = DATA.groups, G = gs.find(g => g.code === gsel);
+  document.title = `${G.name}: успеваемость`;
+  document.getElementById("title").firstChild.textContent = G.name;
+  document.getElementById("sub").textContent = [G.branch, DATA.teacher].filter(Boolean).join(" · ");
+  document.getElementById("code").hidden = false; document.getElementById("codev").textContent = G.code;
+  const gt = document.getElementById("gtabs");
+  gt.hidden = gs.length < 2;
+  gt.innerHTML = gs.map(g => `<button type="button" data-g="${esc(g.code)}" aria-pressed="${g.code === gsel}">${esc(g.name)}</button>`).join("");
+  gt.querySelectorAll("button").forEach(b => b.onclick = () => { gsel = b.dataset.g; try { localStorage.setItem("zarul-t-group", gsel); } catch (e) {} show(); });
+  const rows = DATA.rows.filter(r => r.code === gsel);
+  const lessons = [...new Set(rows.map(r => r.lesson))].sort((a, b) => (+a || 0) - (+b || 0));
+  if (!cur || !lessons.includes(cur)) cur = lessons[lessons.length - 1] || null;
+  render(lessons, rows, G);
+}
+
+function render(lessons, rows, G) {
+  if (!rows.length) { out.innerHTML = `<div class="msg">Пока нет ни одного ответа. Ученики вводят код группы <b>${esc(G.code)}</b> в бланке в телефоне, и их результаты появятся здесь.</div>`; return; }
   const names = [...new Set(rows.map(r => r.name))].sort((a, b) => a.localeCompare(b, "ru"));
   const by = {}; rows.forEach(r => { by[r.name + "\u0001" + r.lesson] = r; });
   // 1. ученики × уроки
@@ -157,13 +172,13 @@ function render(lessons) {
     }
   }
   out.innerHTML = h;
-  out.querySelectorAll(".tabs button").forEach(b => b.onclick = () => { cur = b.dataset.l; render(lessons); });
+  out.querySelectorAll(".tabs button").forEach(b => b.onclick = () => { cur = b.dataset.l; render(lessons, rows, G); });
 }
 
 document.getElementById("refresh").onclick = load;
 addEventListener("hashchange", () => location.reload());
 load();
-setInterval(() => { if (!document.hidden) load(); }, 30000);
+setInterval(() => { if (!document.hidden) load(); }, 90000);   // раз в 1,5 минуты: бережём лимит Google
 </script>
 </body>
 </html>

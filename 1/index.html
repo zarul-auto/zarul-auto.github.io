@@ -127,7 +127,7 @@ function paint(){
       :"Тему нужно повторить. Начни с карточки урока и вопросов с ошибками.";
   }
   STATS={good,bad,left,ex,nex:D.nex,total:D.rows.length};
-  const sentTxt=!D.api||!ST?"":sendState==="ok"?"Результат отправлен учителю.":sendState==="wait"?"Отправляем учителю…":sendState==="bad"?"Пока не отправлено: нет интернета. Отправим сами, когда он появится.":"";
+  const sentTxt=!D.api||!ST?"":sendState==="ok"&&!dirty?"Результат отправлен учителю.":sendState==="wait"?"Отправляем учителю…":sendState==="bad"?"Пока не отправлено: нет связи. Отправим сами, когда она появится.":"";
   document.getElementById("res").innerHTML=`<h2>Итог урока</h2>`+
     `<div class="tot"><div class="g"><b>${good}</b><span>верно</span></div><div class="r"><b>${bad}</b><span>неверно</span></div></div>`+
     `<p>${left?`Без ответа ещё ${left} из ${D.rows.length}.`:`Отвечено на все ${D.rows.length} вопросов.`}</p>`+
@@ -141,23 +141,34 @@ function payload(){
   for(const r of D.rows){const a=S[r.n];if(a==null)continue;answers.push({n:r.n,a,ok:shown(r)?a===r.ok:null})}
   return Object.assign({code:ST.code,name:ST.name,lesson:D.block,answers},STATS);
 }
+// Отправка бережёт лимиты Google (5 филиалов × 3 группы × 20 учеников): не после каждого ответа,
+// а после каждого 5-го, после последнего и когда ученик сворачивает бланк; со случайной задержкой, чтобы
+// 20 телефонов не стучались в одну секунду; при ошибке повтор через 20 с, 1 мин, 3 мин.
+let dirty=false,busy=false,tries=0;
 async function send(){
-  if(!D.api||!ST||!Object.keys(S).length)return;
-  sendState="wait";paint();
+  if(!D.api||!ST||!Object.keys(S).length||busy)return;
+  busy=true;dirty=false;sendState="wait";paint();
   const body=JSON.stringify(payload());
-  try{
-    const r=await fetch(D.api,{method:"POST",body});
-    const j=await r.json();
-    sendState=j.ok?"ok":"bad";
-  }catch(e){
-    if(navigator.onLine){try{await fetch(D.api,{method:"POST",body,mode:"no-cors"});sendState="ok"}catch(e2){sendState="bad"}}
-    else sendState="bad";
-  }
-  try{localStorage.setItem(KEY+"-sent",sendState==="ok"?"1":"0")}catch(e){}
+  let ok=false;
+  try{const r=await fetch(D.api,{method:"POST",body});const j=await r.json();ok=!!j.ok}catch(e){ok=false}
+  busy=false;sendState=ok?"ok":"bad";
+  try{localStorage.setItem(KEY+"-sent",ok?"1":"0")}catch(e){}
   paint();
+  if(!ok){dirty=true;clearTimeout(sendTimer);sendTimer=setTimeout(send,[20,60,180][Math.min(tries++,2)]*1000)}
+  else{tries=0;if(dirty)queueSend(true)}
 }
-function queueSend(){clearTimeout(sendTimer);sendTimer=setTimeout(send,1200)}
-addEventListener("online",()=>{if(sendState!=="ok")send()});
+function queueSend(now){
+  dirty=true;
+  const n=Object.keys(S).length,left=D.rows.length-n;
+  if(!now&&n%5!==0&&left>0){try{localStorage.setItem(KEY+"-sent","0")}catch(e){};return}
+  clearTimeout(sendTimer);sendTimer=setTimeout(send,1000+Math.random()*14000);
+}
+addEventListener("online",()=>{if(dirty||sendState==="bad")send()});
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="hidden"&&dirty&&D.api&&ST&&navigator.sendBeacon){
+    try{if(navigator.sendBeacon(D.api,JSON.stringify(payload()))){dirty=false;localStorage.setItem(KEY+"-sent","1")}}catch(e){}
+  }
+});
 ol.addEventListener("click",ev=>{
   const btn=ev.target.closest("button.b");if(!btn)return;
   const li=btn.closest("li"),n=+li.dataset.n;
@@ -190,12 +201,12 @@ reg.addEventListener("submit",async ev=>{
     group=j.group;
   }catch(e){/* нет интернета: принимаем код как есть, проверит таблица */}
   ST={name,code,group};try{localStorage.setItem(SKEY,JSON.stringify(ST))}catch(e){}
-  btn.disabled=false;btn.textContent="Начать";showWho();paint();if(Object.keys(S).length)queueSend();
+  btn.disabled=false;btn.textContent="Начать";showWho();paint();if(Object.keys(S).length)queueSend(true);
 });
 showWho();
-try{if(localStorage.getItem(KEY+"-sent")==="0")sendState="bad"}catch(e){}
+try{if(localStorage.getItem(KEY+"-sent")==="0")dirty=true}catch(e){}
 paint();
-if(sendState==="bad")send();
+if(dirty)queueSend(true);
 try{navigator.wakeLock&&navigator.wakeLock.request("screen").catch(()=>{})}catch(e){}
 </script>
 </body></html>
